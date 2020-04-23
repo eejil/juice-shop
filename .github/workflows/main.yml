@@ -1,0 +1,52 @@
+name: Build documentation
+
+on:
+  push:
+    branches:
+    - master
+
+jobs:
+
+  build:
+ 
+    runs-on: ubuntu-latest
+  
+ 
+    steps:
+    - uses: actions/checkout@v1
+    - name: build-push
+      uses: docker/build-push-action@v1
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        registry: docker.io
+        repository: lanrell/ssc
+        tag_with_sha: true
+      
+    
+        
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Load AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ASIA3LTHPFHCPQOQ6XSC
+          aws-secret-access-key: /UbcYXQAjjgTac5CdexQsf6GmRm3YB+iSk5BbC3t
+          aws-region: us-east-1
+          aws-session-token: FwoGZXIvYXdzED8aDFO3hFGUywBzfWzpOCLMAQUlDJpYs8paWou76iuGPokMDlmr8er+Fzg0QCDme2ldzI0THpwh01ygEIQr9vo4M8A0yLtIa4Zf+07MoOM/DukuEQgbyG986tbAKyO0zu6YdLe8rlvPphXGqNN8bjxkIKj+fLiqo33hQ07Y7A8U0KfgV716cxwvft0OZH8LVf/2uKwW6WXHcbUvy0t8WWBLbJLvPNfcdz2NZG6R+pIcnjnCDedH84bXN7dDtudyAhoDeQ9gZGEOxpACk28w6Ei3hCt5eOq7+WOPeTheHyja3YT1BTItE6JSzY2P0UM9lGvYk0m/5N1trWoVpMj2Qy9KwMlcUFuEtxWk7LJz1lITz+OD
+      - name: Deploy App Stack
+        id: deploy
+        uses: alexjurkiewicz/cfn-deploy@v2.0.1
+        with:
+          stackName: sylvain-stack
+          templateFile: template.yml
+      - name: Print App Hostname
+        run: echo ${{ steps.deploy.outputs.cf_output_AppHostname }}
+      - name: eks
+        run: |
+         sed -i "s#IMAGE_NAME#lanrell/ssc#g" kustomization.yaml
+         sed -i "s/IMAGE_TAG/sha-$(git rev-parse --short HEAD)/g" kustomization.yaml
+         aws eks update-kubeconfig --name isen
+         kubectl kustomize . | kubectl apply -f -
